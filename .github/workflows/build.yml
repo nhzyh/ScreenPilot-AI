@@ -1,42 +1,48 @@
+
 name: Build APK
+
 on:
   workflow_dispatch:
   push:
     paths:
       - ScreenPilotAI_Android.zip
+
 permissions:
   contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
+
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
+
       - name: Unzip project
         run: unzip -q ScreenPilotAI_Android.zip
-      - name: Restore signing key
-        env:
-          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
-        run: |
-          CLEAN=$(printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]')
-          echo "Secret length: ${#CLEAN} (expected 3556)"
-          mkdir -p ~/.android
-          printf '%s' "$CLEAN" | base64 -d > ~/.android/debug.keystore || { echo "Secret is not valid base64, please re-paste it"; exit 1; }
-          keytool -list -keystore ~/.android/debug.keystore -storepass android > /dev/null || { echo "Keystore invalid, please re-paste the secret"; exit 1; }
-      - name: Build
+
+      - name: Build APK
         run: cd ScreenPilotAI && gradle assembleDebug
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VC=$(grep -oP 'versionCode = \K[0-9]+' ScreenPilotAI/app/build.gradle.kts)
           VN=$(grep -oP 'versionName = "\K[^"]+' ScreenPilotAI/app/build.gradle.kts)
+
           cp ScreenPilotAI/app/build/outputs/apk/debug/app-debug.apk ScreenPilotAI.apk
+
           gh release delete "v$VC" --yes --cleanup-tag || true
-          gh release create "v$VC" ScreenPilotAI.apk --title "V$VN" --notes-file ScreenPilotAI/RELEASE_NOTES.txt
+
+          gh release create "v$VC" ScreenPilotAI.apk \
+            --title "V$VN" \
+            --notes-file ScreenPilotAI/RELEASE_NOTES.txt
