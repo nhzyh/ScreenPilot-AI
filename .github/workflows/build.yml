@@ -6,6 +6,7 @@ on:
   push:
     paths:
       - ScreenPilotAI_Android.zip
+      - .github/workflows/**
 
 permissions:
   contents: write
@@ -15,14 +16,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - uses: gradle/actions/setup-gradle@v4
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
 
@@ -30,19 +34,50 @@ jobs:
         run: unzip -q ScreenPilotAI_Android.zip
 
       - name: Build APK
-        run: cd ScreenPilotAI && gradle assembleDebug
+        run: |
+          cd ScreenPilotAI
+          gradle assembleDebug
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VC=$(grep -oP 'versionCode = \K[0-9]+' ScreenPilotAI/app/build.gradle.kts)
-          VN=$(grep -oP 'versionName = "\K[^"]+' ScreenPilotAI/app/build.gradle.kts)
+          set -euo pipefail
 
-          cp ScreenPilotAI/app/build/outputs/apk/debug/app-debug.apk ScreenPilotAI.apk
+          BUILD_FILE="ScreenPilotAI/app/build.gradle.kts"
 
-          gh release delete "v$VC" --yes --cleanup-tag || true
+          VC=$(grep -oP 'versionCode\s*=\s*\K[0-9]+' "$BUILD_FILE")
+          VN=$(grep -oP 'versionName\s*=\s*"\K[^"]+' "$BUILD_FILE")
+
+          if [ -z "$VC" ] || [ -z "$VN" ]; then
+            echo "Cannot read versionCode or versionName"
+            exit 1
+          fi
+
+          APK="ScreenPilotAI/app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "APK file not found"
+            exit 1
+          fi
+
+          cp "$APK" ScreenPilotAI.apk
+
+          NOTES="ScreenPilotAI/RELEASE_NOTES.txt"
+
+          if [ ! -f "$NOTES" ]; then
+            NOTES="$RUNNER_TEMP/RELEASE_NOTES.txt"
+            echo "ScreenPilot AI V$VN" > "$NOTES"
+            echo "" >> "$NOTES"
+            echo "Automatic APK release." >> "$NOTES"
+          fi
+
+          if gh release view "v$VC" >/dev/null 2>&1; then
+            gh release delete "v$VC" --yes --cleanup-tag
+          fi
 
           gh release create "v$VC" ScreenPilotAI.apk \
-            --title "V$VN" \
-            --notes-file ScreenPilotAI/RELEASE_NOTES.txt
+            --title "ScreenPilot AI V$VN" \
+            --notes-file "$NOTES"
+
+          echo "Release v$VC published successfully"
