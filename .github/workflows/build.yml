@@ -24,9 +24,11 @@ jobs:
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
         run: |
-          if [ -z "$KEYSTORE_B64" ]; then echo "Missing KEYSTORE_B64 secret"; exit 1; fi
+          CLEAN=$(printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]')
+          echo "Secret length: ${#CLEAN} (expected 3556)"
           mkdir -p ~/.android
-          echo "$KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
+          printf '%s' "$CLEAN" | base64 -d > ~/.android/debug.keystore || { echo "Secret is not valid base64, please re-paste it"; exit 1; }
+          keytool -list -keystore ~/.android/debug.keystore -storepass android > /dev/null || { echo "Keystore invalid, please re-paste the secret"; exit 1; }
       - name: Build
         run: cd ScreenPilotAI && gradle assembleDebug
       - name: Publish release
