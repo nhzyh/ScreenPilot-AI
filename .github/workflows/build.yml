@@ -32,13 +32,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
-      - name: Build
-        run: cd ScreenPilotAI && gradle assembleDebug
+      - name: Build release APK
+        run: cd ScreenPilotAI && gradle assembleRelease
       - name: Align and sign APK
         run: |
           set -euo pipefail
-          SRC=ScreenPilotAI/app/build/outputs/apk/debug/app-debug.apk
-          ALIGNED=ScreenPilotAI/app/build/outputs/apk/debug/app-aligned.apk
+          SRC=$(find ScreenPilotAI/app/build/outputs/apk/release -type f -name '*.apk' | sort | head -n1)
+          if [ -z "$SRC" ]; then echo "Release APK not found"; exit 1; fi
+          ALIGNED=ScreenPilotAI/app/build/outputs/apk/release/app-aligned.apk
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           if [ -z "$APKSIGNER" ]; then echo "apksigner not found"; exit 1; fi
           TOOLS_DIR=$(dirname "$APKSIGNER")
@@ -50,14 +51,25 @@ jobs:
             --ks-key-alias "$KEYSTORE_ALIAS" \
             --v1-signing-enabled true \
             --v2-signing-enabled true \
-            --v3-signing-enabled true \
+            --v3-signing-enabled false \
             "$ALIGNED"
           cp "$ALIGNED" ScreenPilotAI.apk
-      - name: Verify APK signature
+      - name: Verify APK signature and release build
         run: |
+          set -euo pipefail
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          AAPT2=$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort -V | tail -1)
           if [ -z "$APKSIGNER" ]; then echo "apksigner not found"; exit 1; fi
-          "$APKSIGNER" verify --verbose --print-certs ScreenPilotAI.apk
+          if [ -z "$AAPT2" ]; then echo "aapt2 not found"; exit 1; fi
+          VERIFY_OUT=$("$APKSIGNER" verify --verbose --print-certs ScreenPilotAI.apk)
+          echo "$VERIFY_OUT"
+          echo "$VERIFY_OUT" | grep -Eq 'Verified using v2 scheme \(APK Signature Scheme v2\): true'
+          BADGING=$("$AAPT2" dump badging ScreenPilotAI.apk)
+          echo "$BADGING"
+          if echo "$BADGING" | grep -q 'application-debuggable'; then
+            echo 'Release APK must not be debuggable'
+            exit 1
+          fi
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
