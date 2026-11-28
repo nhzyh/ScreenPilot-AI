@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - ScreenPilotAI_Android_round5.zip
+      - ScreenPilotAI_Android_round12.zip
 permissions:
   contents: write
 jobs:
@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Unzip project
-        run: unzip -q ScreenPilotAI_Android_round5.zip
+        run: unzip -q ScreenPilotAI_Android_round12.zip
       - name: Restore signing key
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
