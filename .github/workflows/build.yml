@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - ScreenPilotAI_Android_round12.zip
+      - .github/workflows/build.yml
 permissions:
   contents: write
 jobs:
