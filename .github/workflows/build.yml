@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - ScreenPilotAI_Android.zip
+      - ScreenPilotAI_Android_round2.zip
 permissions:
   contents: write
 jobs:
@@ -19,7 +19,7 @@ jobs:
         with:
           gradle-version: 8.7
       - name: Unzip project
-        run: unzip -q ScreenPilotAI_Android.zip
+        run: unzip -q ScreenPilotAI_Android_round2.zip
       - name: Restore signing key
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
