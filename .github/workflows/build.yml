@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Unzip project
-        run: unzip -q ScreenPilotAI_Android_round12.zip
+        run: unzip -oq ScreenPilotAI_Android_round12.zip -x '.github/workflows/build.yml'
       - name: Restore signing key
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
