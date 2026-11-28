@@ -34,12 +34,30 @@ jobs:
           gradle-version: 8.7
       - name: Build
         run: cd ScreenPilotAI && gradle assembleDebug
-      - name: Verify APK signature
+      - name: Align and sign APK
         run: |
-          cp ScreenPilotAI/app/build/outputs/apk/debug/app-debug.apk ScreenPilotAI.apk
+          set -euo pipefail
+          SRC=ScreenPilotAI/app/build/outputs/apk/debug/app-debug.apk
+          ALIGNED=ScreenPilotAI/app/build/outputs/apk/debug/app-aligned.apk
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           if [ -z "$APKSIGNER" ]; then echo "apksigner not found"; exit 1; fi
-          "$APKSIGNER" verify --print-certs ScreenPilotAI.apk
+          TOOLS_DIR=$(dirname "$APKSIGNER")
+          "$TOOLS_DIR/zipalign" -f -p 4 "$SRC" "$ALIGNED"
+          "$APKSIGNER" sign \
+            --ks "$KEYSTORE_FILE" \
+            --ks-pass "pass:$KEYSTORE_PASSWORD" \
+            --key-pass "pass:$KEYSTORE_PASSWORD" \
+            --ks-key-alias "$KEYSTORE_ALIAS" \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            "$ALIGNED"
+          cp "$ALIGNED" ScreenPilotAI.apk
+      - name: Verify APK signature
+        run: |
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          if [ -z "$APKSIGNER" ]; then echo "apksigner not found"; exit 1; fi
+          "$APKSIGNER" verify --verbose --print-certs ScreenPilotAI.apk
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
